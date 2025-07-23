@@ -2,6 +2,7 @@ import sys
 from getpass import getpass
 from rag_components.data_loader import load_and_vectorize_pdf
 from rag_components.pipeline import create_rag_chain
+from rag_components.pipeline import create_query_corrector
 from rag_components.memory import create_conversational_rag_chain
 import config
 
@@ -18,6 +19,7 @@ def main():
     check_api_key()
     load_and_vectorize_pdf()
 
+    query_corrector = create_query_corrector()
     rag_chain = create_conversational_rag_chain()
 
     print("\n--- Multilingual RAG Chatbot ---")
@@ -28,6 +30,8 @@ def main():
         if user_input.lower() == 'exit':
             print("Goodbye!")
             break
+        corrected_query = query_corrector.invoke({"question": user_input})
+        print(f"Me (Corrected): {corrected_query}")
         response = rag_chain.invoke({"question": user_input})
         
         print(f"AI: {response['answer']}")
