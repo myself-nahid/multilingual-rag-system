@@ -1,49 +1,53 @@
 import os
-from langchain_community.document_loaders import PyPDFLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+import pdfplumber
 from langchain_community.vectorstores import FAISS
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from .embedding_model import get_embedding_model
+from .smart_chunker import get_semantic_chunks_from_page
 import config
+
 
 def load_and_vectorize_pdf():
     """
-    Loads the PDF, splits it into chunks, creates embeddings,
-    and saves the vector store to disk.
+    Loads the PDF using pdfplumber and then uses an LLM to perform
+    semantic chunking into paragraphs for maximum precision.
     """
     if os.path.exists(config.VECTOR_STORE_PATH):
-        print("Vector store already exists. Skipping creation.")
+        print("Vector store already exists. To re-build, please delete the 'vector_store' directory.")
         return
 
-    print(f"Loading document from: {config.PDF_PATH}")
     if not os.path.exists(config.PDF_PATH):
-        raise FileNotFoundError(f"The PDF file was not found at {config.PDF_PATH}")
+        raise FileNotFoundError(
+            f"The PDF file was not found at {config.PDF_PATH}")
 
-    loader = PyPDFLoader(config.PDF_PATH)
-    docs = loader.load()
+    print(f"Loading document with pdfplumber from: {config.PDF_PATH}")
+    all_semantic_chunks = []
+    with pdfplumber.open(config.PDF_PATH) as pdf:
+        for i, page in enumerate(pdf.pages):
+            page_text = page.extract_text()
+            if page_text:
+                print(f"Processing page {i+1} with semantic chunker...")
+                page_chunks = get_semantic_chunks_from_page(
+                    page_text, page_number=i+1)
+                all_semantic_chunks.extend(page_chunks)
 
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=config.CHUNK_SIZE,
-        chunk_overlap=config.CHUNK_OVERLAP
-    )
-    split_docs = text_splitter.split_documents(docs)
+    print(f"Total semantic chunks created: {len(all_semantic_chunks)}")
 
-    print("Creating embeddings and vector store...")
-    embeddings = GoogleGenerativeAIEmbeddings(model=config.EMBEDDING_MODEL_NAME)
-    vector_store = FAISS.from_documents(split_docs, embeddings)
+    print("Creating embeddings and vector store with multilingual-e5-large...")
+    embeddings = get_embedding_model()
+    vector_store = FAISS.from_documents(all_semantic_chunks, embeddings)
 
     vector_store.save_local(config.VECTOR_STORE_PATH)
     print(f"Vector store created and saved at {config.VECTOR_STORE_PATH}")
 
+
 def get_vector_store():
-    """
-    Loads the FAISS vector store from the local path.
-    """
     if not os.path.exists(config.VECTOR_STORE_PATH):
-        raise FileNotFoundError("Vector store not found. Please run the data loading process first.")
-        
-    embeddings = GoogleGenerativeAIEmbeddings(model=config.EMBEDDING_MODEL_NAME)
+        raise FileNotFoundError(
+            "Vector store not found. Please run main.py to create it.")
+
+    embeddings = get_embedding_model()
     return FAISS.load_local(
-        config.VECTOR_STORE_PATH, 
+        config.VECTOR_STORE_PATH,
         embeddings,
-        allow_dangerous_deserialization=True 
+        allow_dangerous_deserialization=True
     )
