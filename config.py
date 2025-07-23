@@ -14,3 +14,6 @@ LLM_MODEL_NAME = "gemini-2.5-flash"
 CHUNK_SIZE = 1500
 CHUNK_OVERLAP = 250
 RETRIEVER_K = 5 # Number of chunks to retrieve
+
+API_HOST = "127.0.0.1"
+API_PORT = 8000
