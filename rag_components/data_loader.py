@@ -34,3 +34,16 @@ def load_and_vectorize_pdf():
     vector_store.save_local(config.VECTOR_STORE_PATH)
     print(f"Vector store created and saved at {config.VECTOR_STORE_PATH}")
 
+def get_vector_store():
+    """
+    Loads the FAISS vector store from the local path.
+    """
+    if not os.path.exists(config.VECTOR_STORE_PATH):
+        raise FileNotFoundError("Vector store not found. Please run the data loading process first.")
+        
+    embeddings = GoogleGenerativeAIEmbeddings(model=config.EMBEDDING_MODEL_NAME)
+    return FAISS.load_local(
+        config.VECTOR_STORE_PATH, 
+        embeddings,
+        allow_dangerous_deserialization=True 
+    )
